@@ -11,6 +11,9 @@ import json
 import os
 from bs4 import BeautifulSoup
 
+
+REAL_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+
 # Global tracker of scheduled times
 scheduled_queue_times = []
 def schedule_all_jobs():
@@ -223,7 +226,6 @@ def save_jobs_to_file():
 
     except Exception as e:
         mb.showerror("Error", f"Failed to save jobs: {e}")
-
 def load_jobs_from_file():
     if not os.path.exists(PERSISTENCE_FILE):
         mb.showwarning("Not Found", "No saved job file found.")
@@ -271,10 +273,10 @@ def load_jobs_from_file():
                         password_entry.get().strip(),
                         job["ticket"],
                         job["message"],
-                        job.get("last_comment", ""),
+                        job.get("last_comment", ""),  # ✅ Use saved last_comment
                         job["check_last"],
                         job["solve_ticket"],
-                        job["public_reply"]
+                        job["public_reply"],
                     ],
                     id=job["job_id"],
                     replace_existing=True
@@ -309,10 +311,10 @@ def load_jobs_from_file():
                             password_entry.get().strip(),
                             job["ticket"],
                             job["message"],
-                            job.get("last_comment", ""),
+                            job.get("last_comment", ""),  # ✅ Use saved last_comment
                             job["check_last"],
                             job["solve_ticket"],
-                            job["public_reply"]
+                            job["public_reply"],
                         ],
                         id=job["job_id"],
                         replace_existing=True
@@ -333,6 +335,7 @@ def load_jobs_from_file():
 
     except Exception as e:
         mb.showerror("Error", f"Failed to load jobs: {e}")
+
 
 
 
@@ -390,6 +393,7 @@ def send_message(email, password, ticket_id, message, solve_ticket, public_reply
         "Content-Type": "application/json",
         "Accept": "application/json",
         "X-Requested-With": "XMLHttpRequest",
+        "User-Agent": REAL_USER_AGENT,
     }
 
     # ✨ Default values
@@ -460,12 +464,20 @@ def send_message_to_ticket(
 ):
     if check_last:
         current_last_comment = get_last_comment(email, password, ticket_id)
-        if current_last_comment != original_last_comment:
+
+        # 🔍 Debug prints to help verify the comparison
+        print(f"[DEBUG] Saved last comment:\n{repr(original_last_comment.strip())}")
+        print(f"[DEBUG] Current last comment:\n{repr(current_last_comment.strip())}")
+
+        # ✅ Compare cleaned & stripped comments
+        if clean_html(current_last_comment).strip() != clean_html(original_last_comment).strip():
             print(
                 f"[SKIPPED] Ticket #{ticket_id} changed since scheduling. Not sending."
             )
             return
+
     send_message(email, password, ticket_id, message, solve_ticket, public_reply)
+
 
 
 # --- Scheduling Helpers ---
